@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -136,6 +137,20 @@ func TestResolveOutputDir(t *testing.T) {
 	}
 	if out != customOut {
 		t.Fatalf("resolveOutputDir custom out = %s, want %s", out, customOut)
+	}
+}
+
+func TestParseConfigRejectsFileOutput(t *testing.T) {
+	inputDir := t.TempDir()
+	outputFile := createNamedFile(t, t.TempDir(), "output-file")
+
+	_, err := parseConfig([]string{"-o", outputFile, inputDir})
+	if err == nil {
+		t.Fatalf("expected error when output path points to file")
+	}
+
+	if !strings.Contains(err.Error(), "output path must be a directory") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

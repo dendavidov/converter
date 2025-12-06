@@ -286,6 +286,14 @@ func resolveOutputDir(outputFlag string, info os.FileInfo, inputPath string) (st
 		if err != nil {
 			return "", fmt.Errorf("unable to resolve output directory: %w", err)
 		}
+
+		if stat, statErr := os.Stat(resolved); statErr == nil {
+			if !stat.IsDir() {
+				return "", fmt.Errorf("output path must be a directory, got file: %s", resolved)
+			}
+		} else if !errors.Is(statErr, os.ErrNotExist) {
+			return "", fmt.Errorf("unable to read output path: %w", statErr)
+		}
 		return resolved, nil
 	}
 
