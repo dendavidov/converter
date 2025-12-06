@@ -213,7 +213,7 @@ func checkEbookConvert() error {
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
 	if err := cmd.Run(); err != nil {
-		return errors.New("error: 'ebook-convert' not found. install Calibre")
+		return errors.New("error: 'ebook-convert' not found. install Calibre or use the Docker image")
 	}
 	return nil
 }
