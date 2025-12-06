@@ -1,4 +1,12 @@
-FROM python:3.12-slim
+FROM golang:1.22-bookworm AS builder
+
+WORKDIR /src
+COPY go.mod ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -o /out/converter .
+
+FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \
     QTWEBENGINE_DISABLE_SANDBOX=1 \
@@ -9,7 +17,6 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY ebook_to_pdf.py /app/ebook_to_pdf.py
-RUN chmod 755 /app/ebook_to_pdf.py
+COPY --from=builder /out/converter /app/converter
 
-ENTRYPOINT ["python", "/app/ebook_to_pdf.py"]
+ENTRYPOINT ["/app/converter"]
