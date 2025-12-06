@@ -223,7 +223,7 @@ func checkEbookConvert() error {
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
 	if err := cmd.Run(); err != nil {
-		return errors.New("error: 'ebook-convert' not found. install Calibre")
+		return errors.New("error: 'ebook-convert' not found. install Calibre or use the Docker image")
 	}
 	return nil
 }
@@ -300,7 +300,7 @@ func resolveOutputDir(outputFlag string, info os.FileInfo, inputPath string) (st
 		existing, err := os.Stat(resolved)
 		switch {
 		case err == nil && !existing.IsDir():
-			return "", fmt.Errorf("output path is not a directory: %s", resolved)
+			return "", fmt.Errorf("output path must be a directory, got file: %s", resolved)
 		case err != nil && !errors.Is(err, os.ErrNotExist):
 			return "", fmt.Errorf("unable to check output directory: %w", err)
 		}
