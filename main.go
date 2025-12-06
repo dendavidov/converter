@@ -32,6 +32,14 @@ type config struct {
 	isFile      bool
 }
 
+type flagOptions struct {
+	outputDir string
+	recursive bool
+	overwrite bool
+	extFlag   extList
+	input     string
+}
+
 func (e *extList) String() string {
 	if len(e.values) == 0 {
 		return ""
@@ -209,31 +217,12 @@ func checkEbookConvert() error {
 }
 
 func parseConfig(args []string) (config, error) {
-	var (
-		outputDir string
-		recursive bool
-		overwrite bool
-		extFlag   extList
-	)
-
-	fs := flag.NewFlagSet("converter", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
-	fs.StringVar(&outputDir, "o", "", "Directory to save PDFs (default: same as input)")
-	fs.StringVar(&outputDir, "output-dir", "", "Directory to save PDFs (default: same as input)")
-	fs.BoolVar(&recursive, "r", false, "Recursively search for files in directories")
-	fs.BoolVar(&recursive, "recursive", false, "Recursively search for files in directories")
-	fs.BoolVar(&overwrite, "overwrite", false, "Overwrite existing PDF files")
-	fs.Var(&extFlag, "ext", "Limit to these extensions (can be used multiple times). Default: fb2 and epub.")
-
-	if err := fs.Parse(args); err != nil {
+	opts, err := parseFlags(args)
+	if err != nil {
 		return config{}, err
 	}
 
-	if fs.NArg() < 1 {
-		return config{}, errors.New("input path is required")
-	}
-
-	inputPath, err := filepath.Abs(fs.Arg(0))
+	inputPath, err := filepath.Abs(opts.input)
 	if err != nil {
 		return config{}, fmt.Errorf("unable to resolve input path: %w", err)
 	}
@@ -246,28 +235,61 @@ func parseConfig(args []string) (config, error) {
 		return config{}, fmt.Errorf("unable to read input path: %w", err)
 	}
 
-	allowedExts := resolveExtensions(extFlag)
+	allowedExts := resolveExtensions(opts.extFlag)
 	allowedList := formatExtList(allowedExts)
 
-	resolvedOutput := outputDir
-	if resolvedOutput != "" {
-		resolvedOutput, err = filepath.Abs(resolvedOutput)
-		if err != nil {
-			return config{}, fmt.Errorf("unable to resolve output directory: %w", err)
-		}
-	} else if info.Mode().IsRegular() {
-		resolvedOutput = filepath.Dir(inputPath)
-	} else {
-		resolvedOutput = inputPath
+	resolvedOutput, err := resolveOutputDir(opts.outputDir, info, inputPath)
+	if err != nil {
+		return config{}, err
 	}
 
 	return config{
 		inputPath:   inputPath,
 		outputDir:   resolvedOutput,
-		recursive:   recursive,
-		overwrite:   overwrite,
+		recursive:   opts.recursive,
+		overwrite:   opts.overwrite,
 		allowedExts: allowedExts,
 		allowedList: allowedList,
 		isFile:      info.Mode().IsRegular(),
 	}, nil
+}
+
+func parseFlags(args []string) (flagOptions, error) {
+	var opts flagOptions
+
+	fs := flag.NewFlagSet("converter", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	fs.StringVar(&opts.outputDir, "o", "", "Directory to save PDFs (default: same as input)")
+	fs.StringVar(&opts.outputDir, "output-dir", "", "Directory to save PDFs (default: same as input)")
+	fs.BoolVar(&opts.recursive, "r", false, "Recursively search for files in directories")
+	fs.BoolVar(&opts.recursive, "recursive", false, "Recursively search for files in directories")
+	fs.BoolVar(&opts.overwrite, "overwrite", false, "Overwrite existing PDF files")
+	fs.Var(&opts.extFlag, "ext", "Limit to these extensions (can be used multiple times). Default: fb2 and epub.")
+
+	if err := fs.Parse(args); err != nil {
+		return flagOptions{}, err
+	}
+
+	if fs.NArg() < 1 {
+		return flagOptions{}, errors.New("input path is required")
+	}
+
+	opts.input = fs.Arg(0)
+	return opts, nil
+}
+
+func resolveOutputDir(outputFlag string, info os.FileInfo, inputPath string) (string, error) {
+	if outputFlag != "" {
+		resolved, err := filepath.Abs(outputFlag)
+		if err != nil {
+			return "", fmt.Errorf("unable to resolve output directory: %w", err)
+		}
+		return resolved, nil
+	}
+
+	if info.Mode().IsRegular() {
+		return filepath.Dir(inputPath), nil
+	}
+
+	return inputPath, nil
 }
