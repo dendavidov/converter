@@ -239,7 +239,8 @@ func mockEbookConvert(t *testing.T) {
 	tmp := t.TempDir()
 	bin := filepath.Join(tmp, "ebook-convert")
 	script := "#!/usr/bin/env bash\nif [ \"$1\" = \"--version\" ]; then exit 0; fi\nOUT=\"$2\"\nmkdir -p \"$(dirname \"$OUT\")\"\ntouch \"$OUT\"\n"
-	if err := os.WriteFile(bin, []byte(script), 0o750); err != nil {
+	// Create an executable mock; gosec warning suppressed because this is a test helper.
+	if err := os.WriteFile(bin, []byte(script), 0o700); err != nil { //nolint:gosec // test helper uses execute bit intentionally
 		t.Fatalf("write mock ebook-convert: %v", err)
 	}
 	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
