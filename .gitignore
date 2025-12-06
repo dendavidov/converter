@@ -1,4 +1,6 @@
 books/**
 !books/.gitkeep
+.gocache/
+
 
 converter
