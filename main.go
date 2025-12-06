@@ -18,6 +18,8 @@ var defaultExts = map[string]struct{}{
 	".epub": {},
 }
 
+var ebookConvertBin = "ebook-convert"
+
 type extList struct {
 	values []string
 }
@@ -191,7 +193,7 @@ func convertFile(inputPath, outputDir string, overwrite bool) {
 
 	// #nosec G204 - inputs are intentionally user-provided for conversion
 	cmd := exec.Command(
-		"ebook-convert",
+		ebookConvertBin,
 		inputPath,
 		outputPDF,
 		"--pdf-page-margin-top", "36",
@@ -207,7 +209,7 @@ func convertFile(inputPath, outputDir string, overwrite bool) {
 }
 
 func checkEbookConvert() error {
-	cmd := exec.Command("ebook-convert", "--version")
+	cmd := exec.Command(ebookConvertBin, "--version")
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
 	if err := cmd.Run(); err != nil {
