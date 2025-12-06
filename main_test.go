@@ -214,6 +214,16 @@ func TestRunErrorsOnNonDirectoryOutput(t *testing.T) {
 	}
 }
 
+func TestParseConfigErrorsOnNonDirectoryOutput(t *testing.T) {
+	outputFile := createNamedFile(t, t.TempDir(), "out.txt")
+	inputDir := t.TempDir()
+	createNamedFile(t, inputDir, "book.epub")
+
+	if _, err := parseConfig([]string{"-o", outputFile, inputDir}); err == nil {
+		t.Fatalf("expected error for output path that is not a directory")
+	}
+}
+
 func TestParseFlagsCollectsExts(t *testing.T) {
 	opts, err := parseFlags([]string{"-ext", "epub", "-ext", "fb2", "file"})
 	if err != nil {
