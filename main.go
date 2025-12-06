@@ -1,3 +1,4 @@
+// Package main provides a CLI for converting EPUB/FB2 files to PDF via Calibre.
 package main
 
 import (
@@ -19,6 +20,16 @@ var defaultExts = map[string]struct{}{
 
 type extList struct {
 	values []string
+}
+
+type config struct {
+	inputPath   string
+	outputDir   string
+	recursive   bool
+	overwrite   bool
+	allowedExts map[string]struct{}
+	allowedList []string
+	isFile      bool
 }
 
 func (e *extList) String() string {
@@ -43,88 +54,47 @@ func (e *extList) Set(value string) error {
 }
 
 func main() {
-	var (
-		outputDir string
-		recursive bool
-		overwrite bool
-		extFlag   extList
-	)
-
-	flag.StringVar(&outputDir, "o", "", "Directory to save PDFs (default: same as input)")
-	flag.StringVar(&outputDir, "output-dir", "", "Directory to save PDFs (default: same as input)")
-	flag.BoolVar(&recursive, "r", false, "Recursively search for files in directories")
-	flag.BoolVar(&recursive, "recursive", false, "Recursively search for files in directories")
-	flag.BoolVar(&overwrite, "overwrite", false, "Overwrite existing PDF files")
-	flag.Var(&extFlag, "ext", "Limit to these extensions (can be used multiple times). Default: fb2 and epub.")
-	flag.Parse()
-
-	if flag.NArg() < 1 {
-		fmt.Fprintln(os.Stderr, "Usage: converter [options] <input>")
-		flag.PrintDefaults()
-		os.Exit(1)
-	}
-
-	if err := checkEbookConvert(); err != nil {
+	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
 
-	inputPath, err := filepath.Abs(flag.Arg(0))
+func run(args []string) error {
+	cfg, err := parseConfig(args)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: unable to resolve input path: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
-	info, err := os.Stat(inputPath)
+	if err := checkEbookConvert(); err != nil {
+		return err
+	}
+
+	if cfg.isFile {
+		ext := strings.ToLower(filepath.Ext(cfg.inputPath))
+		if _, ok := cfg.allowedExts[ext]; !ok {
+			fmt.Printf("No matching extension for file: %s (allowed: %s)\n", cfg.inputPath, strings.Join(cfg.allowedList, ", "))
+			return nil
+		}
+		convertFile(cfg.inputPath, cfg.outputDir, cfg.overwrite)
+		return nil
+	}
+
+	files, err := collectFiles(cfg.inputPath, cfg.recursive, cfg.allowedExts)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			fmt.Fprintf(os.Stderr, "ERROR: Input path does not exist: %s\n", inputPath)
-			os.Exit(1)
-		}
-		fmt.Fprintf(os.Stderr, "ERROR: unable to read input path: %v\n", err)
-		os.Exit(1)
-	}
-
-	allowedExts := resolveExtensions(extFlag)
-	allowedList := formatExtList(allowedExts)
-
-	var resolvedOutput string
-	if outputDir != "" {
-		resolvedOutput, err = filepath.Abs(outputDir)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR: unable to resolve output directory: %v\n", err)
-			os.Exit(1)
-		}
-	} else if info.Mode().IsRegular() {
-		resolvedOutput = filepath.Dir(inputPath)
-	} else {
-		resolvedOutput = inputPath
-	}
-
-	if info.Mode().IsRegular() {
-		ext := strings.ToLower(filepath.Ext(inputPath))
-		if _, ok := allowedExts[ext]; !ok {
-			fmt.Printf("No matching extension for file: %s (allowed: %s)\n", inputPath, strings.Join(allowedList, ", "))
-			return
-		}
-		convertFile(inputPath, resolvedOutput, overwrite)
-		return
-	}
-
-	files, err := collectFiles(inputPath, recursive, allowedExts)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to collect files: %w", err)
 	}
 
 	if len(files) == 0 {
-		fmt.Printf("No files with extensions %s found in %s.\n", strings.Join(allowedList, ", "), inputPath)
-		return
+		fmt.Printf("No files with extensions %s found in %s.\n", strings.Join(cfg.allowedList, ", "), cfg.inputPath)
+		return nil
 	}
 
 	for _, f := range files {
-		convertFile(f, resolvedOutput, overwrite)
+		convertFile(f, cfg.outputDir, cfg.overwrite)
 	}
+
+	return nil
 }
 
 func resolveExtensions(extFlag extList) map[string]struct{} {
@@ -198,7 +168,7 @@ func matchExtension(path string, allowed map[string]struct{}) bool {
 }
 
 func convertFile(inputPath, outputDir string, overwrite bool) {
-	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+	if err := os.MkdirAll(outputDir, 0o750); err != nil {
 		fmt.Fprintf(os.Stderr, "[ERROR] Failed to create output directory %s: %v\n", outputDir, err)
 		return
 	}
@@ -211,6 +181,7 @@ func convertFile(inputPath, outputDir string, overwrite bool) {
 		return
 	}
 
+	// #nosec G204 - inputs are intentionally user-provided for conversion
 	cmd := exec.Command(
 		"ebook-convert",
 		inputPath,
@@ -232,7 +203,71 @@ func checkEbookConvert() error {
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
 	if err := cmd.Run(); err != nil {
-		return errors.New("ERROR: 'ebook-convert' not found. Install Calibre.")
+		return errors.New("error: 'ebook-convert' not found. install Calibre")
 	}
 	return nil
+}
+
+func parseConfig(args []string) (config, error) {
+	var (
+		outputDir string
+		recursive bool
+		overwrite bool
+		extFlag   extList
+	)
+
+	fs := flag.NewFlagSet("converter", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	fs.StringVar(&outputDir, "o", "", "Directory to save PDFs (default: same as input)")
+	fs.StringVar(&outputDir, "output-dir", "", "Directory to save PDFs (default: same as input)")
+	fs.BoolVar(&recursive, "r", false, "Recursively search for files in directories")
+	fs.BoolVar(&recursive, "recursive", false, "Recursively search for files in directories")
+	fs.BoolVar(&overwrite, "overwrite", false, "Overwrite existing PDF files")
+	fs.Var(&extFlag, "ext", "Limit to these extensions (can be used multiple times). Default: fb2 and epub.")
+
+	if err := fs.Parse(args); err != nil {
+		return config{}, err
+	}
+
+	if fs.NArg() < 1 {
+		return config{}, errors.New("input path is required")
+	}
+
+	inputPath, err := filepath.Abs(fs.Arg(0))
+	if err != nil {
+		return config{}, fmt.Errorf("unable to resolve input path: %w", err)
+	}
+
+	info, err := os.Stat(inputPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return config{}, fmt.Errorf("input path does not exist: %s", inputPath)
+		}
+		return config{}, fmt.Errorf("unable to read input path: %w", err)
+	}
+
+	allowedExts := resolveExtensions(extFlag)
+	allowedList := formatExtList(allowedExts)
+
+	resolvedOutput := outputDir
+	if resolvedOutput != "" {
+		resolvedOutput, err = filepath.Abs(resolvedOutput)
+		if err != nil {
+			return config{}, fmt.Errorf("unable to resolve output directory: %w", err)
+		}
+	} else if info.Mode().IsRegular() {
+		resolvedOutput = filepath.Dir(inputPath)
+	} else {
+		resolvedOutput = inputPath
+	}
+
+	return config{
+		inputPath:   inputPath,
+		outputDir:   resolvedOutput,
+		recursive:   recursive,
+		overwrite:   overwrite,
+		allowedExts: allowedExts,
+		allowedList: allowedList,
+		isFile:      info.Mode().IsRegular(),
+	}, nil
 }

@@ -102,9 +102,10 @@ func TestCollectFilesRecursive(t *testing.T) {
 
 func createTestFile(path string) error {
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return err
 	}
+	// #nosec G304 - test helper writes to a controlled temporary path
 	f, err := os.Create(path)
 	if err != nil {
 		return err
