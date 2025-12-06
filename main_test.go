@@ -140,6 +140,21 @@ func TestResolveOutputDir(t *testing.T) {
 	}
 }
 
+func TestResolveOutputDirRejectsParentFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	parentFile := createNamedFile(t, tmpDir, "output-file")
+	inputDir := mustStatDir(t, tmpDir)
+
+	_, err := resolveOutputDir(filepath.Join(parentFile, "nested"), inputDir, tmpDir)
+	if err == nil {
+		t.Fatalf("expected error when output path has file parent")
+	}
+
+	if !strings.Contains(err.Error(), "output path parent must be a directory") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestParseConfigRejectsFileOutput(t *testing.T) {
 	inputDir := t.TempDir()
 	outputFile := createNamedFile(t, t.TempDir(), "output-file")
@@ -151,6 +166,15 @@ func TestParseConfigRejectsFileOutput(t *testing.T) {
 
 	if !strings.Contains(err.Error(), "output path must be a directory") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRunRejectsFileOutput(t *testing.T) {
+	inputDir := t.TempDir()
+	outputFile := createNamedFile(t, t.TempDir(), "output-file")
+
+	if err := run([]string{"-o", outputFile, inputDir}); err == nil {
+		t.Fatalf("expected error when output path points to file")
 	}
 }
 

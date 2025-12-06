@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 )
 
 var defaultExts = map[string]struct{}{
@@ -291,8 +292,21 @@ func resolveOutputDir(outputFlag string, info os.FileInfo, inputPath string) (st
 			if !stat.IsDir() {
 				return "", fmt.Errorf("output path must be a directory, got file: %s", resolved)
 			}
+			return resolved, nil
+		} else if errors.Is(statErr, syscall.ENOTDIR) {
+			parent := filepath.Dir(resolved)
+			return "", fmt.Errorf("output path parent must be a directory, got file: %s", parent)
 		} else if !errors.Is(statErr, os.ErrNotExist) {
 			return "", fmt.Errorf("unable to read output path: %w", statErr)
+		}
+
+		parent := filepath.Dir(resolved)
+		if stat, statErr := os.Stat(parent); statErr == nil {
+			if !stat.IsDir() {
+				return "", fmt.Errorf("output path parent must be a directory, got file: %s", parent)
+			}
+		} else if !errors.Is(statErr, os.ErrNotExist) {
+			return "", fmt.Errorf("unable to read output path parent: %w", statErr)
 		}
 		return resolved, nil
 	}
