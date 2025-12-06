@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Project Overview
-Go 1.22 CLI and Docker image for converting EPUB/FB2 ebooks to PDF via Calibre’s `ebook-convert`. Docker is the recommended path; local runs require Calibre installed on PATH.
+Go 1.25 CLI and Docker image for converting EPUB/FB2 ebooks to PDF via Calibre’s `ebook-convert`. Docker is the recommended path; local runs require Calibre installed on PATH.
 
 ## Repository Structure
 - `main.go` / `main_test.go` – CLI entrypoint and unit tests for file discovery, flag parsing, and command execution.
@@ -12,7 +12,7 @@ Go 1.22 CLI and Docker image for converting EPUB/FB2 ebooks to PDF via Calibre�
 - `AGENTS.md` – AI-facing instructions (this file).
 
 ## Setup & Tooling
-- Go: 1.22 (see `go.mod`).
+- Go: 1.25 (see `go.mod`).
 - Docker: required for the supported workflow; Calibre lives in the image.
 - Local Calibre: only needed if running the Go binary directly (not preferred).
 - Cache: `GOCACHE` is pinned in Make targets to avoid polluting the global cache.
