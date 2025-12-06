@@ -178,6 +178,16 @@ func matchExtension(path string, allowed map[string]struct{}) bool {
 }
 
 func convertFile(inputPath, outputDir string, overwrite bool) {
+	info, err := os.Stat(outputDir)
+	switch {
+	case err == nil && !info.IsDir():
+		fmt.Fprintf(os.Stderr, "[ERROR] Output path is not a directory: %s\n", outputDir)
+		return
+	case err != nil && !errors.Is(err, os.ErrNotExist):
+		fmt.Fprintf(os.Stderr, "[ERROR] Failed to inspect output directory %s: %v\n", outputDir, err)
+		return
+	}
+
 	if err := os.MkdirAll(outputDir, 0o750); err != nil {
 		fmt.Fprintf(os.Stderr, "[ERROR] Failed to create output directory %s: %v\n", outputDir, err)
 		return
@@ -286,6 +296,15 @@ func resolveOutputDir(outputFlag string, info os.FileInfo, inputPath string) (st
 		if err != nil {
 			return "", fmt.Errorf("unable to resolve output directory: %w", err)
 		}
+
+		existing, err := os.Stat(resolved)
+		switch {
+		case err == nil && !existing.IsDir():
+			return "", fmt.Errorf("output path is not a directory: %s", resolved)
+		case err != nil && !errors.Is(err, os.ErrNotExist):
+			return "", fmt.Errorf("unable to check output directory: %w", err)
+		}
+
 		return resolved, nil
 	}
 

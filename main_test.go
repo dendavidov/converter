@@ -111,6 +111,7 @@ func TestResolveOutputDir(t *testing.T) {
 	filePath := createNamedFile(t, tmpDir, "file.epub")
 	fileInfo := mustStatFile(t, filePath)
 	dirInfo := mustStatDir(t, t.TempDir())
+	existingFile := createNamedFile(t, t.TempDir(), "output.txt")
 
 	out, err := resolveOutputDir("", fileInfo, "/tmp/dir/file.epub")
 	if err != nil {
@@ -136,6 +137,10 @@ func TestResolveOutputDir(t *testing.T) {
 	}
 	if out != customOut {
 		t.Fatalf("resolveOutputDir custom out = %s, want %s", out, customOut)
+	}
+
+	if _, err := resolveOutputDir(existingFile, dirInfo, dirPath); err == nil {
+		t.Fatalf("expected error for existing non-directory output")
 	}
 }
 
@@ -196,6 +201,16 @@ func TestRunSkipsNonMatchingFile(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(root, "note.pdf")); !os.IsNotExist(err) {
 		t.Fatalf("unexpected pdf created for non-matching file")
+	}
+}
+
+func TestRunErrorsOnNonDirectoryOutput(t *testing.T) {
+	outputFile := createNamedFile(t, t.TempDir(), "out.txt")
+	inputDir := t.TempDir()
+	createNamedFile(t, inputDir, "book.epub")
+
+	if err := run([]string{"-o", outputFile, inputDir}); err == nil {
+		t.Fatalf("expected error for output path that is not a directory")
 	}
 }
 
