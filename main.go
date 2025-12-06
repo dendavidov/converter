@@ -252,7 +252,7 @@ func parseConfig(args []string) (config, error) {
 
 	resolvedOutput, err := resolveOutputDir(opts.outputDir, info, inputPath)
 	if err != nil {
-		return config{}, err
+		return config{}, fmt.Errorf("invalid output directory: %w", err)
 	}
 
 	return config{
