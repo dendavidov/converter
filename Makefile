@@ -4,13 +4,17 @@ IMAGE ?= ebook-pdf
 GOLANGCI_LINT_VERSION ?= v2.7.1
 GOLANGCI_LINT_PKG ?= github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 
-.PHONY: build test lint lint-install docker clean
+.PHONY: build test lint lint-install coverage docker clean
 
 build:
 	GOCACHE=$(GOCACHE) go build -o $(BINARY) .
 
 test:
 	GOCACHE=$(GOCACHE) go test ./...
+
+coverage:
+	GOCACHE=$(GOCACHE) go test ./... -coverprofile=coverage.out
+	go tool cover -func=coverage.out
 
 lint:
 	@$(MAKE) lint-install

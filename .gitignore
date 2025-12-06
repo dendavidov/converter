@@ -1,6 +1,6 @@
 books/**
 !books/.gitkeep
 .gocache/
-
+coverage.out
 
 converter
