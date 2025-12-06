@@ -10,7 +10,7 @@ Go CLI and Docker tooling for converting EPUB and FB2 ebooks to PDF using Calibr
 
 ## Requirements
 - Docker (recommended workflow; no local Calibre install needed).
-- Go 1.22+ only if you want to build the binary yourself or adjust the Docker image.
+- Go 1.25+ only if you want to build the binary yourself or adjust the Docker image.
 
 ## Quick Start (Docker)
 1) Build the image:
